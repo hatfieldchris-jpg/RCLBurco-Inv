@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Burco Inventory</title>
+  <style>
+    /* ── Tokens ── */
+    :root {
+      --bg:          #f5f6f8;
+      --surface:     #ffffff;
+      --border:      #dde1e7;
+      --primary:     #1a3a5c;
+      --primary-lt:  #e8eef5;
+      --accent:      #f0a500;
+      --text:        #1c2533;
+      --muted:       #6b7685;
+      --row-alt:     #f9fafb;
+      --radius:      10px;
+      --shadow:      0 2px 10px rgba(0,0,0,.08);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--primary);
+      color: #fff;
+      padding: 16px 20px 14px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-icon {
+      width: 36px; height: 36px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 900; color: var(--primary);
+      flex-shrink: 0;
+    }
+    .brand-name { font-size: 1.15rem; font-weight: 700; letter-spacing: .3px; }
+    .brand-sub  { font-size: .7rem; opacity: .7; letter-spacing: .5px; text-transform: uppercase; }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      max-width: 1200px;
+      margin: 16px auto 0;
+      padding: 0 16px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .search-wrap {
+      flex: 1 1 220px;
+      position: relative;
+    }
+    .search-wrap svg {
+      position: absolute;
+      left: 11px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+    }
+    #searchInput {
+      width: 100%;
+      padding: 10px 12px 10px 36px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      font-size: .95rem;
+      background: var(--surface);
+      color: var(--text);
+      outline: none;
+      transition: border-color .2s;
+    }
+    #searchInput:focus { border-color: var(--primary); }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 10px 16px;
+      border-radius: var(--radius);
+      font-size: .9rem; font-weight: 600;
+      cursor: pointer; border: none;
+      transition: opacity .15s, transform .1s;
+      white-space: nowrap;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-refresh { background: var(--primary-lt); color: var(--primary); }
+    .btn-export  { background: var(--accent);      color: var(--primary); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── Stats bar ── */
+    .stats-bar {
+      max-width: 1200px;
+      margin: 10px auto 0;
+      padding: 0 16px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .stat-chip {
+      font-size: .8rem;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px 10px;
+    }
+    .stat-chip strong { color: var(--text); }
+
+    /* ── Main content ── */
+    main {
+      max-width: 1200px;
+      margin: 14px auto 40px;
+      padding: 0 16px;
+    }
+
+    /* ── State panels ── */
+    .state-panel {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 48px 24px;
+      text-align: center;
+      display: none;
+    }
+    .state-panel.visible { display: block; }
+    .state-panel .icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .state-panel h2 { font-size: 1.1rem; margin-bottom: 6px; }
+    .state-panel p  { color: var(--muted); font-size: .9rem; }
+
+    /* Spinner */
+    .spinner {
+      width: 40px; height: 40px;
+      border: 4px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin: 0 auto 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Table card ── */
+    .table-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display: none;
+    }
+    .table-card.visible { display: block; }
+
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .88rem;
+      min-width: 700px;
+    }
+    thead {
+      background: var(--primary);
+      color: #fff;
+      position: sticky;
+      top: 0;
+    }
+    th {
+      padding: 12px 14px;
+      text-align: left;
+      font-weight: 600;
+      letter-spacing: .3px;
+      white-space: nowrap;
+    }
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tbody tr:nth-child(even) { background: var(--row-alt); }
+    tbody tr:hover { background: var(--primary-lt); }
+
+    /* Quantity badges */
+    .qty-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: .82rem;
+    }
+    .qty-pos  { background: #e6f4ea; color: #1e6e3a; }
+    .qty-zero { background: #fce8e6; color: #b3261e; }
+
+    /* No results row */
+    .no-results td {
+      text-align: center;
+      padding: 36px;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      font-size: .76rem;
+      color: var(--muted);
+      padding: 0 16px 24px;
+    }
+
+    /* ── Mobile tweaks ── */
+    @media (max-width: 600px) {
+      .brand-name { font-size: 1rem; }
+      th, td { padding: 9px 10px; font-size: .82rem; }
+      .btn { padding: 9px 12px; font-size: .85rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <div class="header-inner">
+    <div class="brand">
+      <div class="brand-icon">B</div>
+      <div>
+        <div class="brand-name">Burco Inventory</div>
+        <div class="brand-sub">Live Stock Levels</div>
+      </div>
+    </div>
+    <div id="lastUpdated" style="font-size:.78rem;opacity:.7;"></div>
+  </div>
+</header>
+
+<!-- ── Toolbar ── -->
+<div class="toolbar">
+  <div class="search-wrap">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+         viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input id="searchInput" type="search" placeholder="Search description, supplier, SCN…" />
+  </div>
+  <button class="btn btn-refresh" id="btnRefresh" onclick="loadData()">
+    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2"
+         viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+    Refresh
+  </button>
+  <button class="btn btn-export" id="btnExport" onclick="exportCSV()" disabled>
+    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2"
+         viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Export CSV
+  </button>
+</div>
+
+<!-- ── Stats bar ── -->
+<div class="stats-bar" id="statsBar" style="display:none;">
+  <span class="stat-chip">Total SKUs: <strong id="statTotal">—</strong></span>
+  <span class="stat-chip">Showing: <strong id="statShowing">—</strong></span>
+</div>
+
+<!-- ── Main ── -->
+<main>
+
+  <!-- Loading -->
+  <div class="state-panel visible" id="panelLoading">
+    <div class="spinner"></div>
+    <h2>Loading inventory…</h2>
+    <p>Fetching live data from OneDrive</p>
+  </div>
+
+  <!-- Error -->
+  <div class="state-panel" id="panelError">
+    <div class="icon">⚠️</div>
+    <h2>Could not load inventory</h2>
+    <p id="errorMsg">An unexpected error occurred.</p>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card" id="tableCard">
+    <div class="table-scroll">
+      <table id="inventoryTable">
+        <thead>
+          <tr>
+            <th>Burco #</th>
+            <th>SCN</th>
+            <th>Description</th>
+            <th>UOM</th>
+            <th>Qty On Hand</th>
+            <th>Qty On Order</th>
+            <th>Supplier</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<footer id="footerNote"></footer>
+
+<script>
+  const COLS = [
+    "Burco #", "SCN", "Description", "UOM",
+    "Qty On Hand", "Qty On Order with Supplier", "Supplier"
+  ];
+
+  let allRows = [];
+
+  function show(panelId) {
+    ["panelLoading","panelError","tableCard"].forEach(id => {
+      const el = document.getElementById(id);
+      el.classList.remove("visible");
+      if (id === "tableCard") el.style.display = "";
+    });
+    const target = document.getElementById(panelId);
+    target.classList.add("visible");
+    if (panelId === "tableCard") target.style.display = "block";
+  }
+
+  async function loadData() {
+    show("panelLoading");
+    document.getElementById("btnRefresh").disabled = true;
+    document.getElementById("btnExport").disabled  = true;
+    document.getElementById("statsBar").style.display = "none";
+
+    try {
+      const res  = await fetch("/api/inventory?" + Date.now());
+      const json = await res.json();
+      if (json.status !== "ok") throw new Error(json.message || "Server error");
+
+      allRows = json.data;
+      renderTable(allRows);
+      show("tableCard");
+
+      document.getElementById("btnExport").disabled = false;
+      document.getElementById("statsBar").style.display = "flex";
+      document.getElementById("statTotal").textContent = allRows.length;
+
+      const now = new Date();
+      document.getElementById("lastUpdated").textContent =
+        "Updated " + now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+      document.getElementById("footerNote").textContent =
+        "Read-only · Data sourced from OneDrive · " + now.toLocaleDateString();
+
+    } catch (err) {
+      document.getElementById("errorMsg").textContent = err.message;
+      show("panelError");
+    } finally {
+      document.getElementById("btnRefresh").disabled = false;
+    }
+  }
+
+  function renderTable(rows) {
+    const tbody = document.getElementById("tableBody");
+    if (!rows.length) {
+      tbody.innerHTML = `<tr class="no-results"><td colspan="${COLS.length}">No results found.</td></tr>`;
+      document.getElementById("statShowing").textContent = 0;
+      return;
+    }
+
+    tbody.innerHTML = rows.map(r => {
+      const qtyHand  = r["Qty On Hand"] ?? "";
+      const qtyOrder = r["Qty On Order with Supplier"] ?? "";
+      const qtyClass = (parseFloat(qtyHand) || 0) > 0 ? "qty-pos" : "qty-zero";
+
+      return `<tr>
+        <td>${esc(r["Burco #"])}</td>
+        <td>${esc(r["SCN"])}</td>
+        <td>${esc(r["Description"])}</td>
+        <td>${esc(r["UOM"])}</td>
+        <td><span class="qty-badge ${qtyClass}">${esc(String(qtyHand))}</span></td>
+        <td>${esc(String(qtyOrder))}</td>
+        <td>${esc(r["Supplier"])}</td>
+      </tr>`;
+    }).join("");
+
+    document.getElementById("statShowing").textContent = rows.length;
+  }
+
+  function esc(str) {
+    return String(str ?? "")
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  // ── Search ──
+  document.getElementById("searchInput").addEventListener("input", function() {
+    const q = this.value.trim().toLowerCase();
+    if (!q) { renderTable(allRows); return; }
+    const filtered = allRows.filter(r =>
+      COLS.some(col => String(r[col] ?? "").toLowerCase().includes(q))
+    );
+    renderTable(filtered);
+  });
+
+  // ── Export CSV ──
+  function exportCSV() {
+    const q = document.getElementById("searchInput").value.trim().toLowerCase();
+    const rows = q
+      ? allRows.filter(r => COLS.some(col => String(r[col] ?? "").toLowerCase().includes(q)))
+      : allRows;
+
+    const header = ["Burco #","SCN","Description","UOM","Qty On Hand","Qty On Order with Supplier","Supplier"];
+    const lines  = [header.join(",")];
+    rows.forEach(r => {
+      lines.push(header.map(h => `"${String(r[h] ?? "").replace(/"/g,'""')}"`).join(","));
+    });
+
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url; a.download = "burco_inventory.csv"; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Auto-load on page open
+  loadData();
+</script>
+</body>
+</html>

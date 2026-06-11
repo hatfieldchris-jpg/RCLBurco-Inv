@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: burco-inventory
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: ONEDRIVE_SHARE_URL
+        sync: false
