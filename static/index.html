@@ -419,9 +419,15 @@
       : allRows;
 
     const header = ["Burco #","SCN","Description","UOM","Qty On Hand","Qty On Order with Supplier","Supplier"];
+    // Columns that must stay as text to preserve leading zeros
+    const textCols = new Set(["Burco #", "SCN"]);
     const lines  = [header.join(",")];
     rows.forEach(r => {
-      lines.push(header.map(h => `"${String(r[h] ?? "").replace(/"/g,'""')}"`).join(","));
+      lines.push(header.map(h => {
+        const val = String(r[h] ?? "").replace(/"/g,'""');
+        // Wrapping in \t tricks Excel/Sheets into treating the cell as text
+        return textCols.has(h) ? `"\t${val}"` : `"${val}"`;
+      }).join(","));
     });
 
     const blob = new Blob([lines.join("\n")], { type: "text/csv" });
